@@ -1,110 +1,57 @@
----
-title: "**Análise Exploratória de Dados sobre Queimadas **"
-author: "Time <br>Data Science Academy"
-subtitle: "Queimadas</a><br>#Queimadas"
-date: "`r format(Sys.Date(), format='%d/%m/%Y')`"
-encoding: "UTF-8"
-output:
-  rmdformats::readthedown:
-   code_folding: hide
-   self_contained: true
-   thumbnails: false
-   lightbox: true
-   gallery: false
-   highlight: tango
-editor_options: 
-  markdown: 
-    wrap: 72
----
 
-[![Fonte: Queimadas
-2010.](https://revistapesquisa.fapesp.br/wp-content/uploads/2019/10/062-065_queimadas_284-0-1140px.jpg)](https://s2.glbimg.com/RzKBN3O6Fh5QjqA4x0mQDiW4is4=/0x0:2000x1333/984x0/smart/filters:strip_icc()/i.s3.glbimg.com/v1/AUTH_59edd422c0c84a879bd37670ae4f538a/internal_photos/bs/2019/r/P/hrPwKtTZCMAZYIQ33EyQ/age20190828130.jpg)
-
-
-```{r setup, echo = FALSE, warning = FALSE, include = FALSE, warnings=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, fig.align = "center")
-library(stats)
-library(gtsummary)
-library(MASS)
-library(ROCR)
-library(prediction)
-library(data.table)
-library(purrr)
-library(car)
-library(mice)
+library(mice)#pacote para imputação
+library(dplyr)
+library(caret)
 library(gains)
 library(pROC)
 library(ROCR)
 library(ROSE)
 library(e1071)
 library(psych)
+library(dplyr)
 library(randomForest)
+install.packages("tree")
 library(tree)
+library(car)
 library(knitr)
 library(MASS)
-library(corrplot)
-#install.packages("devtools")
-devtools::install_github("tidyverse/tidyverse")
-library(tidyverse)
-library(randomForest)
-library(tree)
-library(dplyr)
-library(knitr)
-library(markdown)
+library(plyr)
+library(tidyr)
+library(shiny)
 library(ggplot2)
-```
+library(shinydashboard)
+library(scales)
+library(dplyr)
 
-## **Resumo**
 
-  Incêndios florestais geram impactos sociais e ambientais nos locais onde ocorrem.
-  A Energia Radiativa do Fogo (FRP) é uma técnica para quantificar a biomassa queimada usando dados de sensoriamento remoto.A FRP mede a energia radiante emitida por unidade de tempo pela vegetação queimada.
-  A estimativa do total de biomassa queimada é realizada a partir da Energia Radiativa do Fogo (FRE), que é definida como a energia emitida pelo fogo como radiação eletromagnética durante o ciclo de vida da queimada e pode ser obtida a partir da integração temporal da FRP.
-  
-<div/>
+##A Energia Radiativa do Fogo (FRP) é uma técnica para quantificar a biomassa queimada
+##usando dados de sensoriamento remoto.A FRP mede a energia radiante emitida por unidade
+##de tempo pela vegetação queimada.
 
-## **2. Descrição das variáveis**
+##A estimativa do total de biomassa queimada é realizada a partir da Energia Radiativa do Fogo (FRE),
+##que é definida como a energia emitida pelo fogo como radiação eletromagnética durante o ciclo de vida 
+#da queimada e pode ser obtida a partir da integração temporal da FRP (WOOSTER et al., 2003).
 
-<div style="text-align: justify">
-  Analisando os tipos dos dados
-  Este estudo analisa  para determinar quanto
- cada , com base em . Isso
-é calculado através da 
 
-```{r Leitura, echo=TRUE, message=FALSE, warnings=FALSE}
-# Leitura dos dados
+##interessante:https://revistapesquisa.fapesp.br/como-monitorar-o-fogo/
+
+
+#Importando a base de dados
 dados_queimadas_v1 <- read.csv("Focos_2021-06-26_2021-06-27.csv")
-dados_queimadas_v1 %>%
-  DT::datatable()
-```
-  <div/>
-  
-## **3. Análise Exploratória dos dados**
 
-<div style="text-align: justify">
+#Analisando os tipos dos dados
+View(dados_queimadas_v1)
 
-  Nesta seção serão apresentados os principais resultados obtidos na
-análise de dados em questão. No primeiro momento fez-se a leitura das
-$1.430$ observações referentes às **quatro** variáveis citadas
-anteriormente e todos os dados podem ser consultados na tabela a seguir:
-
-<div/>
-
-
-```{r}
 str(dados_queimadas_v1) %>% 
-  kable()
-```
+  
 
-
-```{r}
 summary(dados_queimadas_v1)
 
-```
-Verificamos que existem dados faltantes e outliers
+dados_queimadas_v1[1:5,]
 
-Análise dias sem chuva
+#Verificamos que existem dados faltantes e outliers
 
-```{r}
+# Análise dias sem chuva
 hist(dados_queimadas_v1$diasemchuva,
      main = "Histograma dias sem chuva",
      xlab = "Quantidade de Dias",
@@ -112,108 +59,89 @@ hist(dados_queimadas_v1$diasemchuva,
      col = "#6600cc",
      labels = TRUE)
 
-```
 
-Análise precipitação
-
-```{r}
+# Análise precipitação
 hist(dados_queimadas_v1$precipitacao,
      main = "Histograma precipitacao",
      xlab = "Quantidade de Dias",
      ylab = "Frequência",
      col = "#6600cc",
      labels = TRUE)
-```
 
-Análise riscofogo
-
-```{r}
+# Análise riscofogo
 hist(dados_queimadas_v1$riscofogo,
      main = "Histograma Riscofogo",
      xlab = "Quantidade de Dias",
      ylab = "Frequência",
      col = "#6600cc",
      labels = TRUE)
-```
 
-#Removendo outliers negativos
 
-```{r}
-dados_queimadas_v2 =filter(dados_queimadas_v1,diasemchuva >=0 | is.na(diasemchuva),riscofogo >=0 | is.na(riscofogo))
-```
+#Removendo outliers negativos 
 
-Analise dos dados após a retirada dos outliers
+dados_queimadas_v2 =filter(dados_queimadas_v1, diasemchuva >=0 | is.na(diasemchuva),riscofogo >=0 | is.na(riscofogo))
 
-```{r}
+
+
 summary(dados_queimadas_v2)
-```
+View(dados_queimadas_v1)
+View(dados_queimadas_v2)
 
 
-Análise dias sem chuva
 
-```{r}
+
+
+# Análise dias sem chuva
 hist(dados_queimadas_v2$diasemchuva,
      main = "Histograma dias sem chuva",
      xlab = "Quantidade de Dias",
      ylab = "Frequência",
      col = "#6600cc",
      labels = TRUE)
-```
 
-
-Análise riscofogo
-```{r}
+# Análise riscofogo
 hist(dados_queimadas_v2$riscofogo,
      main = "Histograma Riscofogo",
      xlab = "Quantidade de Dias",
      ylab = "Frequência",
      col = "#6600cc",
      labels = TRUE)
-```
 
-Análise precipitação
-
-```{r}
+# Análise precipitação
 hist(dados_queimadas_v2$precipitacao ,
      main = "Precipitacao",
      xlab = "Quantidade de Dias",
      ylab = "Frequência",
      col = "#6600cc",
      labels = TRUE)
-```
 
-Análise FRP (verificar se faz sentido!!!)
-
-```{r}
+# Análise FRP (verificar se faz sentido!!!)
 hist(dados_queimadas_v2$frp ,
      main = "Energia Radiativa do Fogo (FRP)",
      xlab = "Quantidade de Dias",
      ylab = "Frequência",
      col = "#6600cc",
      labels = TRUE)
-```
 
-Contando os valores NA(185 linhas e 2220 informações)
-
-```{r}
+#Contando os valores NA(185 linhas e 2220 informações)
 sapply(dados_queimadas_v2, function(x)sum(is.na(x)))
-sum(is.na(dados_queimadas_v2)) %>% 
-  kable()
-```
-## Aplicando Imputação em Valores Missing Usando Método PMM (Predictive Mean Matching)
+sum(is.na(dados_queimadas_v2))
 
-<div style="text-align: justify">
-  1º Encontrar as variáveis com dados do tipo caracter e pegar o nome das colunas
-  <div/>
-```{r}
+
+
+
+
+##### Aplicando Imputação em Valores Missing Usando Método PMM (Predictive Mean Matching)
+
+
+# 1º Encontrar as variáveis com dados do tipo caracter e pegar o nome das colunas
+
 chr_col <- as.integer(0)
 chrnames <- names(Filter(is.character, dados_queimadas_v2))
 chrnames
 k = 1
-```
- <div/>
- 2º Encontrando o indice dessas colunas
-```{r}
+
+#2º Encontrando o indice dessas colunas
 for(i in chrnames){
   while (k <= 6){ #nesse dataset temos apenas 6
     grep(i, colnames(dados_queimadas_v2))
@@ -222,439 +150,381 @@ for(i in chrnames){
     break 
   }
 }
-```
- 
- Colunas que são do tipo caracter
-```{r}
+
+# Colunas que são do tipo caracter
 chr_col
-```
- Imputação
- Definindo a regra de imputação
-```{r}
+
+# Imputação
+
+# Definindo a regra de imputação
+
 regra_imputacao <- mice((dados_queimadas_v2[,-c(chr_col)]), 
                         m = 1, 
                         maxit = 50, 
-                        meth = 'pmm',)
-```
- Aplicando a regra de imputação
-```{r}
+                        meth = 'pmm', 
+)
+
+# Aplicando a regra de imputação
 total_data <- complete(regra_imputacao, 1)
 View(total_data)
 sum(is.na(total_data))
-```
- Juntar novamente as variáveis categóricas ao dataset
- 
-```{r}
+
+# Juntar novamente as variáveis categóricas ao dataset
 dados_queimadas_v2_final <- cbind(dados_queimadas_v2[,c(chr_col)],total_data )#incluindo as colunas com fator o c esta sem o sinal de negativo
 View(dados_queimadas_v2_final)
 View(dados_queimadas_v2)
 sum(is.na(dados_queimadas_v2_final))
-```
-```{r}
+
 summary(dados_queimadas_v2_final)
-```
- Análise dias sem chuva
-```{r}
+
+
+# Análise dias sem chuva
 hist(dados_queimadas_v2_final$diasemchuva,
      main = "Histograma dias sem chuva",
      xlab = "Quantidade de Dias",
      ylab = "Frequência",
      col = "#6600cc",
      labels = TRUE)
-```
- 
-  Análise riscofogo
-  
-```{r}
+
+# Análise riscofogo
 hist(dados_queimadas_v2_final$riscofogo,
      main = "Histograma Riscofogo",
      xlab = "Quantidade de Dias",
      ylab = "Frequência",
      col = "#6600cc",
      labels = TRUE)
-```
- 
- Análise precipitação
- 
-```{r}
+
+# Análise precipitação
 hist(dados_queimadas_v2_final$precipitacao ,
      main = "Precipitacao",
      xlab = "Quantidade de Dias",
      ylab = "Frequência",
      col = "#6600cc",
      labels = TRUE)
-```
-  Análise FRP (verificar se faz sentido!!!) 
-```{r}
+
+# Análise FRP (verificar se faz sentido!!!)
 hist(dados_queimadas_v2_final$frp ,
      main = "Energia Radiativa do Fogo (FRP)",
      xlab = "Quantidade de Dias",
      ylab = "Frequência",
      col = "#6600cc",
      labels = TRUE)
-```
 
-  BoxPlot
-  
-```{r}
+
+
+
+
+# BoxPlot 
 boxplot(dados_queimadas_v2_final$riscofogo)
-```
-```{r}
 boxplot(dados_queimadas_v2_final$diasemchuva)
-```
-  
-```{r}
 boxplot(dados_queimadas_v2_final$precipitacao)
-```
-```{r}
 boxplot(dados_queimadas_v2_final$frp)
-```
 
-  calculando a média de dias sem chuva por município
-  
-```{r}
+
+
+#calculando a média de dias sem chuva por município  
 diaschuva_municipio_antes<-aggregate(data = dados_queimadas_v2, diasemchuva ~ municipio, mean)
 diaschuva_municipio_antes<-aggregate(data = dados_queimadas_v2_final, diasemchuva ~ municipio, mean)
-```
-  
- calculando a média de dias sem chuva por estado
- 
-```{r}
+
+#calculando a média de dias sem chuva por estado
 diaschuva_estado_antes<- aggregate(data = dados_queimadas_v2, diasemchuva ~ estado, mean)
 diaschuva_estado_depois<- aggregate(data = dados_queimadas_v2_final, diasemchuva ~ estado, mean)
-```
 
-calculando vários juntos
-```{r}
+#calculando vários juntos 
 aggregate(data = dados_queimadas_v2_final, cbind(diasemchuva,precipitacao,riscofogo,frp) ~ estado, mean)
 aggregate(data = dados_queimadas_v2_final, cbind(diasemchuva,precipitacao,riscofogo,frp) ~ municipio, mean)
-```
-  Variancia
 
-```{r}
+#Variancia 
+
 var(dados_queimadas_v2_final$riscofogo)
 var(dados_queimadas_v2_final$diasemchuva)
 var(dados_queimadas_v2_final$precipitacao)
 var(dados_queimadas_v2_final$frp)
-```
-  Desvio Padrão 
-```{r}
+
+#Desvio Padrão 
 sd(dados_queimadas_v2_final$riscofogo)
 sd(dados_queimadas_v2_final$diasemchuva)
 sd(dados_queimadas_v2_final$precipitacao)
 sd(dados_queimadas_v2_final$frp)
-```
-  Coeficiente de Assimetria
-```{r}
+
+#Coeficiente de Assimetria
 skewness(dados_queimadas_v2_final$diasemchuva)
 skewness(dados_queimadas_v2_final$precipitacao )
 skewness(dados_queimadas_v2_final$riscofogo)
 skewness(dados_queimadas_v2_final$frp)
-```
-  
- Curtose grau de achatamento em relação a normal Padrão
- 
-```{r}
+
+#Curtose grau de achatamento em relação a normal Padrão
 kurtosis(dados_queimadas_v2_final$diasemchuva)
 kurtosis(dados_queimadas_v2_final$riscofogo)
 kurtosis(dados_queimadas_v2_final$precipitacao )
 kurtosis(dados_queimadas_v2_final$frp)
-```
- Diasemchuva X riscofogo(correlação fraca positiva)
- 
-```{r}
+
+#diasemchuva X riscofogo(correlação fraca positiva)
 x = dados_queimadas_v2_final$diasemchuva
 y = dados_queimadas_v2_final$riscofogo
 cor(x,y)
-```
- Precipitacao X riscofogo (correlação fraca negativa)
- 
-```{r}
+
+#precipitacao X riscofogo (correlação fraca negativa)
 x = dados_queimadas_v2_final$precipitacao
 y = dados_queimadas_v2_final$riscofogo
 cor(x,y)
 
-```
- frp X riscofogo (correlação fraca negativa)
- 
-```{r}
+#frp X riscofogo (correlação fraca negativa)
 x = dados_queimadas_v2_final$frp
 y = dados_queimadas_v2_final$riscofogo
 cor(x,y)
-```
- Correlacao
-```{r}
+
+
+#Correlacao
+
 cor(dados_queimadas_v2_final[c( "diasemchuva", "precipitacao", "riscofogo", "latitude","longitude","frp" )])
 pairs.panels(dados_queimadas_v2_final[c( "diasemchuva", "precipitacao", "riscofogo", "latitude","longitude","frp" )])
 
-```
- Checando se a variável alvo está balanceada (*******colocar o indicador de queimada e ou tipo vegetação, região, etc)
- Muita concentração em 1
 
-```{r}
+# Checando se a variável alvo está balanceada (*******colocar o indicador de queimada e ou tipo vegetação, região, etc)
+
+#Muita concentração em 1
 prop.table(table(dados_queimadas_v2_final$riscofogo)) * 100
-```
-```{r}
+
+
 prop.table(table(dados_queimadas_v2_final$diasemchuva)) * 100
-```
-  Muita concentração em 0
 
-```{r}
+#Muita concentração em 0
 prop.table(table(dados_queimadas_v2_final$precipitacao)) * 100
-```
-  Antes e depois da imputação
 
-```{r}
+
+
+# Antes e depois da imputação
+
 as.data.frame(table(dados_queimadas_v2$riscofogo))
-```
-  
-```{r}
+
 as.data.frame(table(dados_queimadas_v2_final$riscofogo))
-```
-  Transformando dados que estão como character mas podem ter comportamento de fatores Bioma
-```{r}
+
+
+
+#Transformando dados que estão como character mas podem ter comportamento de fatores Bioma
+
 dados_queimadas_v3_final <-data.frame(dados_queimadas_v2_final)
 dados_queimadas_v3_final$bioma <- as.factor(dados_queimadas_v3_final$bioma)
 dados_queimadas_v3_final$diasemchuva<- as.numeric(dados_queimadas_v3_final$diasemchuva)
-```
 
-```{r}
 str(dados_queimadas_v3_final)
-```
-  Dividindo os dados em treino 60% e 30% teste e ( balancear dados de treino ??)
-  
-```{r}
+View(dados_queimadas_v3_final)
+
+#Dividindo os dados em treino 60% e 30% teste e ( balancear dados de treino ??)
+
 indice_divisao_dos_dados <- sample(x = nrow(dados_queimadas_v3_final),
                                    size = 0.6 * nrow(dados_queimadas_v3_final),
                                    replace = FALSE)#amostra sem reposição
 
-```
-  Separando os dados
-  
-```{r}
+
+# Separando os dados
 dados_treino <- dados_queimadas_v3_final[indice_divisao_dos_dados ,]
 dados_teste <- dados_queimadas_v3_final[-indice_divisao_dos_dados ,]
-```
 
 
-## ** Treinamento do modelo de regressão linear n1 **
+# Treinamento do modelo de regressão linear  Nº1
 
-<div style="text-align: justify">
-```{r}
 model_v1 <- lm(riscofogo ~ diasemchuva +precipitacao+ latitude + longitude + frp, data = dados_treino[,-c(1:6)] )
-```
-
-```{r}
 previsao_treino_v1 <- predict(model_v1)
-```
 
-  Testando o modelo Nº1
-  
-```{r}
+#Testando o modelo Nº1
 teste_v1 <- dados_teste[,-c(1:6,9)] #retirando colunas de character e target
 View(dados_teste)
 View(teste_v1)
 previsao_teste_v1 <- predict(model_v1,teste_v1)
-```
+View(previsao_teste)
 
 
-```{r}
 summary(model_v1)
-```
 
-  Detectando a colinearidade: quando duas ou mais variaveis preditivas são altamente correlacionadas aumenta o erro padrão obtendo estimativas instáveis avaliar valores maiores que 5
-  
-```{r}
+
+#Detectando a colinearidade: quando duas ou mais variaveis preditivas são altamente correlacionadas
+#aumenta o erro padrão obtendo estimativas instáveis
+#avaliar valores maiores que 5
 kable(vif(model_v1 ),align='c')
-```
-  
-  Fazendo seleção de atributos com o método Akaike(AIC)
-```{r}
+
+#Fazendo seleção de atributos com o método Akaike(AIC)
+?stepAIC
 step<-stepAIC(model_v1, direction='both', trace=FALSE)
 summary(step)
-```
-  Incluindo uma coluna com os valores previstos no dataset
-```{r}
-dados_teste_com_previsoes <- cbind(dados_teste, previsao_teste_v1)
-```
-  
-  Colocando a variavel Target ao Lado dos valores Previstos
-  
-```{r}
+
+#Incluindo uma coluna com os valores previstos no dataset
+dados_teste_com_previsoes <- cbind(dados_teste, previsao_teste_1)
+
+#Colocando a variavel Target ao Lado dos valores Previstos 
+
 dados_teste_com_previsoes<- dados_teste_com_previsoes %>%
-  select(datahora, satelite, pais, estado, municipio,bioma,diasemchuva,precipitacao,latitude,longitude,frp,riscofogo,previsao_teste_v1)
+  select(datahora, satelite, pais, estado, municipio,bioma,diasemchuva,precipitacao,latitude,longitude,frp,riscofogo,previsao_teste_1)
 View(dados_teste_com_previsoes)
-```
-  
-  
-<div/>
 
-## ** Treinamento do modelo de regressão linear n2 **
 
-```{r}
+
+# Treinamento do modelo de regressão linear  Nº2 transformando o bioma para fator e incluindo no modelo
+
 model_v2 <- lm(riscofogo ~bioma  + diasemchuva + precipitacao + latitude + longitude + frp, data = dados_treino)
 previsao_treino_v2 <- predict(model_v2)
-```
-  
-<div style="text-align: justify">
 
-  Testando o modelo Nº2
-  
-```{r}
+#Testando o modelo Nº2
 teste_v2 <- dados_teste[,-c(1:5,9)] #retirando coluna de character e target
 View(dados_teste)
 View(teste_v2)
 previsao_teste_v2 <- predict(model_v2,teste_v2)
-View(previsao_teste_v1)
-```
-  
-```{r}
+View(previsao_teste)
+
+
 summary(model_v2)
-```
-  Resultado: Adjusted R-squared:  0.5785 
-  
-<div/>
+#Resultado: Adjusted R-squared:  0.5785 
 
-## ** Treinamento do modelo de regressão linear n3 **
+# Treinamento do modelo de regressão linear  Nº3 retirando o FRP
 
-```{r}
+
 model_v3 <- lm(riscofogo ~diasemchuva + precipitacao + latitude + longitude , data = dados_treino)
 previsao_treino_v3 <- predict(model_v3)
 
-```
-
-  Testando o modelo Nº3
-```{r}
+#Testando o modelo Nº3
 teste_v3 <- dados_teste[,-c(1:6,9,12)]
 View(dados_teste)
 View(teste_v3)
 previsao_teste_v3 <- predict(model_v3,teste_v3)
 View(previsao_teste_v3)
-```
-  
-```{r}
+
 summary(model_v3)
-```
-  Resultado: Adjusted R-squared:  0.5255 
-  
-<div/>
+#Resultado: Adjusted R-squared:  0.5255 
 
-## ** Treinamento do modelo de regressão linear n4 **
 
-<div style="text-align: justify">
-```{r}
+# Treinamento do modelo de regressão linear  Nº4 elevando latitude e longitude ao quadrado
+
 dados_treino_v2 <- dados_treino
 dados_treino_v2$latitude <- dados_treino$latitude^2
 dados_treino_v2$longitude <- dados_treino$longitude^2
 dados_teste_v2 <- dados_teste
 dados_teste_v2$latitude <- dados_teste$latitude^2
 dados_teste_v2$longitude <- dados_teste$longitude^2
-```
 
-```{r}
 model_v4 <- lm(riscofogo ~bioma  + diasemchuva + precipitacao + latitude + longitude + frp, data = dados_treino_v2)
 previsao_treino_v4 <- predict(model_v4)
-```
 
-```{r}
+#Testando o modelo Nº4
 teste_v4 <- dados_teste_v2[,-c(1:5,9)] #retirando coluna de character e target
 View(dados_teste_v2)
 View(teste_v4)
 previsao_teste_v4 <- predict(model_v4,teste_v4)
-```                               
+View(previsao_teste)
 
 
-```{r}
 summary(model_v4)
-```
-Resultado: Adjusted R-squared:  0.5507 
+#Resultado: Adjusted R-squared:  0.5507 
 
-<div/>
 
-## ** Treinamento do modelo Random Forest **
-
-<div style="text-align: justify">
-
-```{r}
+#Testando o modelo Nº5 (Random Forest)
 teste_v5 <- dados_teste[,-c(1:5,9)] #retirando coluna de character e target
 treino_v5 <- dados_treino[,-c(1:5,9)] #retirando coluna de character e target
 
-```
-
-```{r}
 View(treino_v5)
 View(dados_treino[9])
 View(teste_v5)
 View(dados_teste[9])
 
-```
-
-```{r}
 length(treino_v5)
-```
-```{r}
+
 rf <- randomForest(x=treino_v5,
                    y=dados_treino[,9],
                    xtest=teste_v5,
                    ytest=dados_teste[,9],
                    ntree=200)
-```
 
-```{r}
 rf                   
 varImpPlot(rf)
 plot(rf)
-```
-  Testando o modelo Nº6(Decision Tree)
-```{r}
+text(rf, pretty=0)
+
+
+
+#Testando o modelo Nº6(Decision Tree)
 teste_v6 <- dados_teste[,-c(1:5,9)] #retirando coluna de character e target
 treino_v6 <- dados_treino[,-c(1:5)] #retirando coluna de character 
-```
-  
-```{r}
+
+?tree
 tree_1<-tree(riscofogo ~ bioma  + diasemchuva + precipitacao + latitude + longitude + frp, data = treino_v6)
-```
 
-<div/>
-
-```{r}
 summary(tree_1)
-```
-```{r}
 plot(tree_1)
-```
-```{r}
+text(tree_1)
+
+#validação cruzada
 cv.tree1<- cv.tree(tree_1)
 plot(cv.tree1$size, cv.tree1$dev, type ="b", col="blue")
-```
 
-teste
 
-```{r}
+#teste
 riscofogo_teste <- predict(tree_1,teste_v6  )
 riscofogo_original <-dados_teste[,9]
-```
 
-```{r}
 teste1 <- data.frame(obs=riscofogo_original, pred=riscofogo_teste)
 str(teste1)
-```
-```{r}
-str(teste1)
-```
-```{r}
+?defaultSummary
+defaultSummary(teste1)
+# Checando se a variável alvo está balanceada (*******colocar o indicador de queimada e ou tipo vegetação, região, etc)
+
+#Muita concentração em 1
 prop.table(table(dados_treino$riscofogo)) * 100
-```
-```{r}
+
 dados_treino$precipitacao = as.factor (dados_treino$precipitacao)
 dados_treino$riscofogo = as.factor (dados_treino$riscofogo)
 dados_treino$latitude  = as.factor (dados_treino$latitude )
 dados_treino$longitude  = as.factor (dados_treino$longitude)
 dados_treino$frp  = as.factor (dados_treino$frp )
-```
 
-  aplicando balanceamento com SMOTE(não deu certo)
-  dados_treino_balanceados <- SMOTE(riscofogo ~ ., dados_treino, perc.over = 600, perc.under = 100)
+View(dados_treino)
 
-<div/>
+#aplicando balanceamento com SMOTE(não deu certo)
+##dados_treino_balanceados <- SMOTE(riscofogo ~ ., dados_treino, perc.over = 600, perc.under = 100)
 
+##str(dados_treino)
+
+
+
+###Bases para Dashboard shiny
+
+##Agrupando os dados em tabelas
+
+##Risco Fogo médio X Estado+Município
+# Agrupa os dados pela média de riscofogo 
+RiscoFogoMedioEstadoMunicipio <- aggregate(riscofogo ~ estado+municipio, data = dados_queimadas_v3_final, mean)
+colnames(RiscoFogoMedioEstadoMunicipio)[3]  <- "Riscofogo_medio"
+
+##Risco Fogo médio X Estado
+# Agrupa os dados pela média de riscofogo 
+RiscoFogoMedioEstado <- aggregate(riscofogo ~ estado, data = dados_queimadas_v3_final, mean)
+colnames(RiscoFogoMedioEstado)[2]  <- "Riscofogo_medio"
+
+##Risco Fogo médio X Bioma
+# Agrupa os dados pela média de riscofogo 
+RiscoFogoMedioBioma <- aggregate(riscofogo ~ bioma, data = dados_queimadas_v3_final, mean)
+colnames(RiscoFogoMedioBioma)[2]  <- "Riscofogo_medio"
+
+##Dias sem Chuva médio X Bioma
+# Agrupa os dados pela média de diasemchuva
+DiasSemChuvaMedioBioma <- aggregate(diasemchuva ~ bioma, data = dados_queimadas_v3_final, mean)
+colnames(DiasSemChuvaMedioBioma)[2]  <- "Diasemchuva_medio"
+
+##Dias sem Chuva médio X Estado
+# Agrupa os dados pela média de diasemchuva
+DiasSemChuvaMedioEstado <- aggregate(diasemchuva ~ estado, data = dados_queimadas_v3_final, mean)
+colnames(DiasSemChuvaMedioEstado)[2]  <- "Diasemchuva_medio"
+
+##Dias sem Chuva médio X Município
+# Agrupa os dados pela média de diasemchuva
+DiasSemChuvaMedioMunicipio <- aggregate(diasemchuva ~ municipio, data = dados_queimadas_v3_final, mean)
+colnames(DiasSemChuvaMedioMunicipio)[2]  <- "Diasemchuva_medio"
+
+
+#Tabela Estado
+TabelaEstado <- left_join(RiscoFogoMedioEstado,DiasSemChuvaMedioEstado, by = c("estado"="estado"))
+
+#Tabela Município
+TabelaMunicipio <- left_join(RiscoFogoMedioEstadoMunicipio,DiasSemChuvaMedioMunicipio, by = c("municipio"="municipio"))
+
+#Tabela Bioma
+TabelaBioma <- left_join(RiscoFogoMedioBioma,DiasSemChuvaMedioBioma, by = c("bioma"="bioma"))
